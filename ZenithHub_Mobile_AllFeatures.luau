@@ -60,22 +60,44 @@ local Remotes = {
     RFCraft = replicated:WaitForChild("Modules"):WaitForChild("Net"):WaitForChild("RF/Craft")
 }
 EquipWeapon = function(text)
-  if not text then return end
-  if plr.Backpack:FindFirstChild(text) then
-	plr.Character.Humanoid:EquipTool(plr.Backpack:FindFirstChild(text))
+  if not text then return false end
+  local char = plr.Character
+  local hum = char and char:FindFirstChildOfClass("Humanoid")
+  if not hum then return false end
+  local equipped = char:FindFirstChild(text)
+  if equipped and equipped:IsA("Tool") then return true end
+  local tool = plr.Backpack:FindFirstChild(text)
+  if tool and tool:IsA("Tool") then
+    hum:EquipTool(tool)
+    return true
   end
+  return false
 end
 weaponSc = function(weapon)
-  for __in, v in pairs(plr.Backpack:GetChildren()) do
-    if v:IsA("Tool") then
-      if v.ToolTip == weapon then EquipWeapon(v.Name) end
+  local char = plr.Character
+  if char then
+    for _, v in pairs(char:GetChildren()) do
+      if v:IsA("Tool") and v.ToolTip == weapon then
+        _G.SelectWeapon = v.Name
+        return v.Name
+      end
+    end
+  end
+  for _, v in pairs(plr.Backpack:GetChildren()) do
+    if v:IsA("Tool") and v.ToolTip == weapon then
+      _G.SelectWeapon = v.Name
+      EquipWeapon(v.Name)
+      return v.Name
     end
   end
 end
 local Attack = {}
 Attack.__index = Attack
 Attack.Alive = function(model) if not model then return end local Humanoid = model:FindFirstChild("Humanoid") return Humanoid and Humanoid.Health > 0 end
-Attack.Pos = function(model,dist) return (Root.Position - mode.Position).Magnitude <= dist end
+Attack.Pos = function(model,dist)
+  local targetRoot = model and model:FindFirstChild("HumanoidRootPart")
+  return targetRoot and (Root.Position - targetRoot.Position).Magnitude <= dist or false
+end
 Attack.Dist = function(model,dist) return (Root.Position - model:FindFirstChild("HumanoidRootPart").Position).Magnitude <= dist end
 Attack.DistH = function(model,dist) return (Root.Position - model:FindFirstChild("HumanoidRootPart").Position).Magnitude > dist end
 Attack.Kill = function(model,Succes)
@@ -84,7 +106,8 @@ Attack.Kill = function(model,Succes)
   PosMon = model:GetAttribute("Locked").Position
   BringEnemy()
   EquipWeapon(_G.SelectWeapon)
-  local Equipped = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+  local Equipped = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+  if not Equipped then return end
   local ToolTip = Equipped.ToolTip
   if ToolTip == "Blox Fruit" then _tp(model.HumanoidRootPart.CFrame * CFrame.new(0,10,0) * CFrame.Angles(0,math.rad(90),0)) else _tp(model.HumanoidRootPart.CFrame * CFrame.new(0,30,0) * CFrame.Angles(0,math.rad(180),0))end
   if RandomCFrame then wait(.5)_tp(model.HumanoidRootPart.CFrame * CFrame.new(0, 30, 25)) wait(.5)_tp(model.HumanoidRootPart.CFrame * CFrame.new(25, 30, 0)) wait(.5)_tp(model.HumanoidRootPart.CFrame * CFrame.new(-25, 30 ,0)) wait(.5)_tp(model.HumanoidRootPart.CFrame * CFrame.new(0, 30, 25)) wait(.5)_tp(model.HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))end
@@ -1451,6 +1474,44 @@ end
 local function stroke(obj,color)
     local s=Instance.new("UIStroke",obj); s.Color=color or Theme.border; s.Thickness=1; return s
 end
+
+-- Reliable mobile minimize/restore.
+local minimized = false
+local savedRootSize = Root.Size
+local savedRootPosition = Root.Position
+local Restore = Instance.new("TextButton")
+Restore.Name = "ZenithRestore"
+Restore.Size = UDim2.fromOffset(54,54)
+Restore.Position = UDim2.new(0,14,1,-68)
+Restore.BackgroundColor3 = Theme.card
+Restore.TextColor3 = Theme.accent2
+Restore.Font = Enum.Font.GothamBold
+Restore.TextSize = 20
+Restore.Text = "Z"
+Restore.Visible = false
+Restore.Parent = Gui
+round(Restore,14)
+stroke(Restore)
+local function setMinimized(value)
+    minimized = value
+    Body.Visible = not value
+    if value then
+        savedRootSize = Root.Size
+        savedRootPosition = Root.Position
+        Root.Size = UDim2.fromOffset(260,48)
+        Root.Position = UDim2.new(0,14,0,14)
+        Min.Text = "+"
+        Restore.Visible = true
+    else
+        Root.Size = savedRootSize
+        Root.Position = savedRootPosition
+        Min.Text = "−"
+        Restore.Visible = false
+    end
+end
+Min.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
+Restore.MouseButton1Click:Connect(function() setMinimized(false) end)
+
 local function label(parent,text,size,color)
     local l=Instance.new("TextLabel")
     l.BackgroundTransparency=1
@@ -1517,7 +1578,7 @@ local function makeTab(title)
             local l=label(page,titleText,30,Theme.accent2)
             l.Font=Enum.Font.GothamBold
             l.TextSize=13
-            l.LayoutOrder=10000
+            l.LayoutOrder = #page:GetChildren() + 1
             return l
         end,
         AddParagraph=function(self,opt)
@@ -1619,6 +1680,20 @@ local Tabs = {
     Shop = Window:AddTab({ Title = "Tab Shopping", Icon = "rbxassetid://6031265976" }),
     Misc = Window:AddTab({ Title = "Tab Miscellaneous", Icon = "rbxassetid://10709783577" })
 }
+
+-- Select the first tab on startup so the mobile window never opens on an empty page.
+for btn, page in pairs(TabButtons) do
+    page.Visible = false
+    btn.BackgroundColor3 = Theme.panel
+    btn.TextColor3 = Theme.muted
+end
+if TabButtons[next(TabButtons)] then
+    local firstBtn = next(TabButtons)
+    TabButtons[firstBtn].Visible = true
+    firstBtn.BackgroundColor3 = Theme.card
+    firstBtn.TextColor3 = Theme.accent2
+    CurrentPage = TabButtons[firstBtn]
+end
 
 Tabs.Info:AddSection("Information")
 
@@ -1836,32 +1911,17 @@ WeaponDropdown = Tabs.Main:AddDropdown("Dropdown_Select_Weapon", {
 end})
 
 
+_G.ChooseWP = _G.ChooseWP or "Melee"
 spawn(function()
     while task.wait(0.5) do
         pcall(function()
-            if _G.ChooseWP == "Melee" then
-                for _,v in pairs(plr.Backpack:GetChildren()) do
-                    if v.ToolTip == "Melee" then
-                        _G.SelectWeapon = v.Name
-                    end
-                end
-            elseif _G.ChooseWP == "Sword" then
-                for _,v in pairs(plr.Backpack:GetChildren()) do
-                    if v.ToolTip == "Sword" then
-                        _G.SelectWeapon = v.Name
-                    end
-                end
-            elseif _G.ChooseWP == "Gun" then
-                for _,v in pairs(plr.Backpack:GetChildren()) do
-                    if v.ToolTip == "Gun" then
-                        _G.SelectWeapon = v.Name
-                    end
-                end
-            elseif _G.ChooseWP == "Blox Fruit" then
-                for _,v in pairs(plr.Backpack:GetChildren()) do
-                    if v.ToolTip == "Blox Fruit" then
-                        _G.SelectWeapon = v.Name
-                    end
+            local wanted = _G.ChooseWP or "Melee"
+            local found = weaponSc(wanted)
+            if not found then
+                local char = plr.Character
+                if char then
+                    local equipped = char:FindFirstChildOfClass("Tool")
+                    if equipped then _G.SelectWeapon = equipped.Name end
                 end
             end
         end)
