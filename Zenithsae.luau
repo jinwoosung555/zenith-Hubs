@@ -1,13 +1,13 @@
--- ThanhDuyHub | SETTINGS + AUTORUN | CLEAN
+-- ZenithHub | SETTINGS + AUTORUN | CLEAN
 -- Single executable source: duplicate embedded UI/source removed.
 if not game then
-    error("ThanhDuyHub: Run this script in a Roblox executor, not a Lua editor.")
+    error("ZenithHub: Run this script in a Roblox executor, not a Lua editor.")
 end
 
 if type(writefile) == "function" then
     pcall(function()
-        writefile("ThanhDuyHub_RESUME.lua", [[
-local path = "ThanhDuyHubmainfix_autotreadmill_CLEAN.lua"
+        writefile("ZenithHub_RESUME.lua", [[
+local path = "ZenithHubmainfix_autotreadmill_CLEAN.lua"
 if type(readfile) == "function" and type(loadstring) == "function" then
     local ok, src = pcall(readfile, path)
     if ok and type(src) == "string" and #src > 0 then
@@ -19,7 +19,7 @@ end
     end)
 end
 
-local function ThanhDuyHub_BOOT_PARENT()
+local function ZenithHub_BOOT_PARENT()
     local parent = nil
     pcall(function()
         if typeof(gethui) == "function" then
